@@ -1,0 +1,929 @@
+;  "XEVIOUS" - The Arcade Game!
+;  written & copyrighted by Maz Spork 
+;  in a pathetic moment of inspiration.
+;  DON'T PANIC!
+;  .. betcha this program'll award me the
+;  Galactic Institute's Price for Extreme Cleverness
+;  (early summer 1986)
+
+.processor z80
+PAGE	72
+WIDTH	80
+TAB	16
+;
+DELAY	EQU &01
+BREDDE	EQU &12
+TABUL	EQU &07
+HYPPIG	EQU 32
+MAXSHT	EQU 8
+MAXALI	EQU 6
+;
+	ORG  &A000
+;
+	DI
+	LD   HL,AFBRYD
+	LD   (&B0FF),HL
+	LD   HL,&0000
+	LD   (SCORE),HL
+	LD   (SEED+1),HL
+	LD   A,&01
+	LD   (SEED),A
+	LD   HL,&55FE+TABUL+BREDDE/2
+	LD   (BASXY),HL
+	LD   A,4*(BREDDE MOD 2)
+	LD   (BAPIX),A
+	LD   A,DELAY
+	LD   (SPEED),A
+	XOR  A
+	LD   (SHOOTS),A
+	LD   (PLAYER),A
+	LD   (ALIENS),A
+	LD   HL,GTABLE
+	LD   DE,GTABLE+1
+	LD   BC,75*2
+	LD   (HL),A
+	LDIR
+	LD   HL,&4000
+	LD   BC,&1800
+	LD   DE,&4001
+	LD   (HL),L
+	LDIR
+	LD   BC,&0300
+	LD   (HL),71
+	LDIR
+	XOR  A
+	OUT  (&FE),A
+	LD   HL,PLTXT
+	CALL TEXT
+	CALL TEXT
+	CALL TEXT
+	CALL TEXT
+	LD   HL,&5800+TABUL
+	LD   B,&20
+ILOOP:	LD   DE,SCINIT
+	LD   C,BREDDE
+JLOOP:	LD   A,(DE)
+	CP   121
+	JR   NZ,JNEXT
+	BIT  2,B
+	JR   Z,JNEXT
+	LD   A,57
+JNEXT:	LD   (HL),A
+	INC  DE
+	INC  HL
+	DEC  C
+	JR   NZ,JLOOP
+	LD   DE,&20-BREDDE
+	ADD  HL,DE
+	DJNZ ILOOP
+	LD   IY,FLAGS
+	LD   (IY+0),B
+	CALL WAIT
+;
+	LD   A,&B0
+	LD   I,A
+	IM   2
+	EI
+	HALT
+	DI
+	LD   BC,&0000
+	CALL WAIT
+	EI
+;
+GAME:	HALT
+	LD   A,&F7
+	IN   A,(&FE)
+	RRA
+	JR   C,GAME
+	LD   IY,&5C3A
+	IM   1
+	RET
+;
+AFBRYD: DI
+	PUSH AF
+	CALL COLISN
+	CALL FOREGR
+	CALL BACKGR
+	CALL KEYBRD
+	CALL ENEMY
+	POP  AF
+	EI
+	RET
+;
+COLISN: PUSH IY
+	LD   IY,ATABLE-4
+	LD   A,(ALIENS)
+	LD   C,A
+	OR   A
+	JP   Z,GOHOME
+CLOOP1: LD   DE,4
+	ADD  IY,DE
+	LD   A,(IY+0)
+	OR   A
+	JR   Z,CLOOP1
+	LD   IX,GTABLE-3
+	LD   A,(SHOOTS)
+	LD   B,A
+	OR   A
+	JP   Z,GOHOME
+CLOOP2: LD   DE,3
+	ADD  IX,DE
+	LD   A,(IX+0)
+	OR   A
+	JR   Z,CLOOP2
+	RLCA
+	RLCA
+	RLCA
+	AND  7
+	LD   E,A
+	LD   A,(IX+1)
+	AND  &18
+	OR   E
+	LD   E,A
+	LD   A,(IY+0)
+	RLCA
+	RLCA
+	RLCA
+	AND  7
+	LD   D,A
+	LD   A,(IY+1)
+	AND  &18
+	OR   D
+	LD   D,A
+	ADD  A,2
+	CP   E
+	JR   NC,NOLAP
+	LD   A,E
+	ADD  A,2
+	CP   D
+	JR   NC,NOLAP
+	LD   A,(IX+0)
+	AND  &1F
+	ADD  A,2
+	LD   E,A
+	LD   A,(IY+0)
+	AND  &1F
+	CP   E
+	JR   NC,NOLAP
+	LD   A,(IY+0)
+	AND  &1F
+	ADD  A,2
+	LD   E,A
+	LD   A,(IX+0)
+	AND  &1F
+	CP   E
+	JR   NC,NOLAP
+	LD   HL,SHOOTS
+	DEC  (HL)
+	LD   HL,ALIENS
+	DEC  (HL)
+	PUSH IX
+	PUSH BC
+	LD   C,16
+	LD   E,(IX+0)
+	LD   D,(IX+1)
+	EX   DE,HL
+	LD   A,(IX+2)
+	LD   (PIXEL),A
+	LD   IX,SPACES
+	CALL SPR16
+	LD   IX,SPACES
+	LD   C,16
+	LD   E,(IY+0)
+	LD   D,(IY+1)
+	EX   DE,HL
+	LD   A,(IY+2)
+	AND  7
+	LD   (PIXEL),A
+	CALL SPR16
+	POP  BC
+	POP  IX
+	LD   (IY+0),0
+	LD   (IX+0),0
+NOLAP:	DEC  B
+	JP   NZ,CLOOP2
+	DEC  C
+	JP   NZ,CLOOP1
+GOHOME: POP  IY
+	RET
+;
+BACKGR: LD   HL,SPEED
+	DEC  (HL)
+	RET  NZ
+	LD   (HL),DELAY
+	LD   HL,&5ADF
+	LD   DE,&5AFF
+	LD   BC,&02E0
+	LDDR
+	LD   HL,BTABLE
+	LD   DE,&5800+TABUL
+	LD   B,BREDDE
+LOOP2:	LD   A,(HL)
+	AND  15
+	PUSH HL
+	PUSH DE 
+	LD   HL,PALETT
+	LD   D,&00
+	LD   E,A
+	ADD  HL,DE
+	LD   A,(HL)
+	POP  DE
+	POP  HL
+	LD   (DE),A
+	INC  HL
+	INC  DE
+	DJNZ LOOP2
+	LD   B,BREDDE
+	LD   IX,BTABLE+BREDDE-1
+LOOP1:	CALL RND
+	AND  7
+	ADD  A,(IX+&01)
+	ADD  A,(IX+&1F)
+	ADD  A,(IX+&20)
+	ADD  A,(IX+&21)
+	SUB  &02
+	SRL  A
+	SRL  A
+	LD   (IX+&00),A
+	DEC  IX
+	DJNZ LOOP1
+	LD   HL,BTABLE+&1F
+	LD   DE,BTABLE+&3F
+	LD   BC,&20
+	LDDR
+	CALL RND
+	CP   HYPPIG
+	RET  NC
+	AND  31
+	LD   L,A
+	LD   H,&58
+	LD   A,(HL)
+	AND  &38
+	CP   &20
+	RET  NZ
+	LD   (HL),89
+	RET
+;
+FOREGR: LD   A,(ALIENS)
+	OR   A
+	JP   Z,FORE0
+	LD   B,A
+	LD   HL,ATABLE
+FORE2:	LD   A,(HL)
+	OR   A
+	JP   Z,FORE3
+	PUSH HL
+	LD   E,A
+	INC  HL
+	LD   D,(HL)
+	EX   DE,HL
+	CALL SCI
+	EX   DE,HL
+	INC  HL
+	INC  HL
+	INC  (HL)
+	JP   M,FOREL
+	LD   A,(HL)
+	RLCA
+	RLCA
+	RLCA
+	RLCA
+	AND  &07
+	LD   C,A
+	DEC  HL
+	LD   A,(HL)
+	BIT  3,A
+	JR   NZ,FORE7
+	AND  7
+	ADD  A,C
+	CP   8
+	JR   C,FORE8
+	AND  7
+	INC  E
+	JR   FORE8
+FORE7:	AND  7
+	SUB  C
+	SET  3,A
+	JR   NC,FORE8
+	AND  7
+	SET  3,A
+	DEC  E
+	JR   FORE8
+FOREL:	DEC  HL
+	LD   A,(HL)
+	AND  7
+	LD   (PIXEL),A
+	XOR  A
+	JR   FORET
+FORE8:	LD   C,A
+	LD   A,(HL)
+	AND  &F0
+	OR   C
+	LD   (HL),A
+	LD   A,E
+	AND  &1F
+	CP   TABUL+BREDDE-2
+	JR   NC,FORE4
+	CP   TABUL
+	JR   C,FORE4
+	INC  HL
+	LD   A,(HL)
+	AND  &30
+	DEC  HL
+	ADD  A,(HL)
+	LD   (HL),A
+	AND  7
+	LD   (PIXEL),A
+	LD   A,(HL)
+	AND  &C0
+	RRCA
+FORET:	LD   IX,ALIEN1
+	PUSH BC
+	LD   C,A
+	LD   B,&00
+	ADD  IX,BC
+	DEC  HL
+	LD   (HL),D
+	DEC  HL
+	LD   (HL),E
+	EX   DE,HL
+	LD   C,16
+	CALL SPR16
+	POP  BC
+	POP  HL
+FORE5:	INC  HL
+	INC  HL
+	INC  HL
+	INC  HL
+	DEC  B
+	JP   NZ,FORE2
+	JP   FORE0
+FORE3:	INC  HL
+	INC  HL
+	INC  HL
+	INC  HL
+	JP   FORE2
+FORE4:	LD   IX,SPACES
+	LD   C,16
+	EX   DE,HL
+	PUSH BC
+	CALL SPR16
+	POP  BC
+	LD   HL,ALIENS
+	DEC  (HL)
+	POP  HL
+	LD   (HL),0
+	JR   FORE5
+FORE0:	LD   HL,(BASXY)
+	LD   IX,BASE
+	LD   C,20
+	LD   A,(BAPIX)
+	LD   (PIXEL),A
+	CALL SPR16
+	LD   C,10
+	LD   IX,SIGHT
+	LD   HL,(BASXY)
+	LD   A,H
+	SUB  8
+	LD   H,A
+	LD   A,L
+	SUB  &60
+	LD   L,A
+	JR   NC,FORE1
+	LD   A,H
+	SUB  &08
+	LD   H,A
+FORE1:	LD   A,(BAPIX)
+	LD   (PIXEL),A
+	CALL SPR16
+	BIT  0,(IY+0)		
+	JR   Z,NOBMB2
+	LD   C,9
+	LD   A,(MIPIX)
+	LD   (PIXEL),A
+	LD   HL,(MISXY)
+	CALL SCD
+	CALL SCD
+	CALL SCD
+	LD   A,(MISCNT)
+	DEC  A
+	LD   (MISCNT),A
+	JR   NZ,MISS1
+	RES  0,(IY+0)
+	LD   IX,SPACES
+	LD   HL,(MISXY)
+	PUSH HL
+	CALL SPR8
+	POP  HL
+	CALL ATTRAD
+	LD   C,&00
+	LD   B,208
+	CALL CHECK
+	INC  L
+	CALL CHECK
+	LD   DE,&1F
+	ADD  HL,DE
+	CALL CHECK
+	INC  L
+	CALL CHECK
+	AND  A
+	RL   C
+	LD   E,C
+	JP   SCUPDA
+CHECK:	LD   A,(HL)
+	LD   (HL),B
+	CP   89
+	RET  NZ
+	INC  C
+	RET
+MISS1:	LD   (MISXY),HL
+	LD   IX,MSLE1
+	CALL SPR8
+NOBMB2: LD   A,(SHOOTS)
+	OR   A
+	RET  Z
+	LD   B,A
+	LD   HL,GTABLE
+SHOOT1: LD   A,(HL)
+	OR   A
+	JR   Z,SHOOT2
+	PUSH HL
+	LD   E,A
+	INC  HL
+	LD   D,(HL)
+	EX   DE,HL
+	CALL SCD
+	CALL SCD
+	CALL SCD
+	CALL SCD
+	LD   A,H
+	CP   &40
+	JR   C,SHOOT3
+	INC  DE
+	LD   A,(DE)
+	LD   (PIXEL),A
+	EX   DE,HL
+	DEC  HL
+	LD   (HL),D
+	DEC  HL
+	LD   (HL),E
+	EX   DE,HL
+	LD   IX,MSLE2
+	PUSH BC
+	LD   C,7
+	CALL SPR16
+	POP  BC
+	POP  HL
+SHOOT4: INC  HL
+	INC  HL
+	INC  HL
+	DJNZ SHOOT1
+	RET
+SHOOT2: INC  HL
+	INC  HL
+	INC  HL
+	JR   SHOOT1
+SHOOT3: LD   IX,SPACES
+	LD   C,7
+	PUSH BC
+	CALL SPR16
+	POP  BC
+	LD   HL,SHOOTS
+	DEC  (HL)
+	POP  HL
+	LD   (HL),0
+	JR   SHOOT4
+;
+ENEMY:	CALL RND
+	CP   HYPPIG/8
+	RET  NC
+	LD   A,(ALIENS)
+	CP   MAXALI
+	RET  NC
+	INC  A
+	LD   (ALIENS),A
+	LD   HL,ATABLE-4
+ENEMY1: INC  HL
+	INC  HL
+	INC  HL
+	INC  HL
+	LD   A,(HL)
+	OR   A
+	JR   NZ,ENEMY1
+	EX   DE,HL
+	CALL RND
+	AND  &0F
+	LD   C,A
+	RES  0,C
+	RES  1,C
+	ADD  A,TABUL+(BREDDE-16)/2
+	LD   (DE),A
+	INC  DE
+	LD   A,&40
+	LD   (DE),A
+	INC  DE
+	CALL RND
+	AND  &07
+	RL   C
+	OR   C
+	LD   (DE),A
+	LD   A,&E0
+	INC  DE
+	LD   (DE),A
+	RET
+;
+SCUPDA: CALL POINTS
+	LD   A,(PLAYER)
+	OR   A
+	JR   Z,SCUPD1
+	LD   A,BREDDE+TABUL
+SCUPD1: ADD  A,&21
+	LD   L,A
+	LD   H,&40
+	PUSH HL
+	POP  IX
+	LD   A,(SCORE+1)
+	CALL HEX
+	LD   A,(SCORE)
+	JP   HEX
+;
+POINTS: LD   HL,(SCORE)
+	LD   A,L
+	ADD  A,E
+	DAA
+	LD   L,A
+	LD   A,H
+	ADC  A,D
+	DAA
+	LD   H,A
+	LD   (SCORE),HL
+	RET
+;
+KEYBRD: LD   A,&FD
+	IN   A,(&FE)
+	RRA
+	CALL NC,LEFT
+	LD   A,&FD
+	IN   A,(&FE)
+	AND  &02
+	CALL Z,RIGHT
+	LD   A,&BF
+	IN   A,(&FE)
+	AND  &04
+	CALL Z,DOWN
+	LD   A,&DF
+	IN   A,(&FE)
+	AND  &02
+	CALL Z,UP
+	LD   A,&7F
+	IN   A,(&FE)
+	RRA
+	JR   C,NOBOMB
+	BIT  0,(IY+0)
+	JR   NZ,NOBOMB
+	CALL BCKLIN
+	LD   A,(BAPIX)
+	ADD  A,&04
+	CP   &08
+	JR   C,BOMB1
+	AND  &07
+	INC  DE
+BOMB1:	LD   (MIPIX),A
+	LD   (MISXY),DE
+	SET  0,(IY+0)
+	LD   A,DELAY*3+1
+	LD   (MISCNT),A
+NOBOMB: LD   A,&DF
+	IN   A,(&FE)
+	RRA
+	JR   NC,FIRE
+	RES  1,(IY+0)
+	RET
+FIRE:	BIT  1,(IY+0)
+	RET  NZ
+	SET  1,(IY+0)
+	LD   A,(SHOOTS)
+	CP   MAXSHT
+	RET  NC
+	INC  A
+	LD   (SHOOTS),A
+	LD   HL,GTABLE-3
+	LD   DE,3
+FIRE1:	ADD  HL,DE
+	LD   A,(HL)
+	OR   A
+	JR   NZ,FIRE1
+	CALL BCKLIN
+	LD   (HL),E
+	INC  HL
+	LD   (HL),D
+	INC  HL
+	LD   A,(BAPIX)
+	LD   (HL),A
+	RET
+;
+BCKLIN: LD   DE,(BASXY)
+	LD   A,E
+	SUB  &20
+	LD   E,A
+	RET  NC
+	LD   A,D
+	SUB  &08
+	LD   D,A
+	RET
+;
+RND:	PUSH BC
+	LD   A,(SEED)
+	LD   HL,(SEED+1)
+	LD   C,A
+	LD   B,1
+RND1:	LD   A,C
+	AND  &48
+	ADD  A,&38
+	SLA  A
+	SLA  A
+	RL   H
+	RL   L
+	RL   C
+	DJNZ RND1
+	LD   A,C
+	LD   (SEED),A
+	LD   (SEED+1),HL
+	POP  BC
+	RET
+;
+LEFT:	LD   A,(BAPIX)
+	CP   &02
+	JR   NZ,LEFT1
+	LD   A,(BASXY)
+	AND  &1F
+	CP   TABUL
+	RET  Z
+	LD   A,(BAPIX)
+LEFT1:	DEC  A
+	DEC  A
+	LD   (BAPIX),A
+	CP   &FE
+	RET  NZ
+	LD   A,&06
+	LD   (BAPIX),A
+	LD   HL,BASXY
+	DEC  (HL)
+	RET
+;
+RIGHT:	LD   A,(BAPIX)
+	CP   6
+	JR   NZ,RIGHT1
+	LD   A,(BASXY)
+	AND  &1F
+	CP   TABUL+BREDDE-3
+	RET  Z
+	LD   HL,BASXY
+	INC  (HL)
+	XOR  A
+	LD   (BAPIX),A
+	RET
+RIGHT1: INC  A
+	INC  A
+	LD   (BAPIX),A
+	RET
+;
+DOWN:	LD   HL,(BASXY)
+	CALL SCI
+	LD   A,H
+	CP   &55
+	JR   NZ,DOWN1
+	LD   A,L
+	CP   &A0
+	RET  NC
+DOWN1:	LD   (BASXY),HL
+	RET
+;
+UP:	LD   HL,(BASXY)
+	CALL SCD
+	LD   A,H
+	CP   &48
+	JR   NZ,UP1
+	LD   A,L
+	CP   &80
+	RET  C
+UP1:	LD   (BASXY),HL
+	RET
+;
+SCI:	INC  H
+	LD   A,H
+	AND  &07
+	RET  NZ
+	LD   A,L
+	ADD  A,&20
+	LD   L,A
+	RET  C
+	LD   A,H
+	SUB  &08
+	LD   H,A
+	RET
+;
+SCD:	DEC  H
+	LD   A,H
+	AND  &07
+	CP   &07 
+	RET  NZ
+	LD   A,L
+	SUB  &20
+	LD   L,A
+	RET  C
+	LD   A,H
+	ADD  A,&08
+	LD   H,A
+	RET
+;
+SPR16:	LD   A,(PIXEL)
+	LD   E,(IX+0)
+	LD   D,(IX+1)
+	LD   B,&00
+	OR   A
+	JR   Z,SPR16B
+SPR16A: RR   E
+	RR   D
+	RR   B
+	DEC  A
+	JR   NZ,SPR16A
+SPR16B: DEC  L
+	LD   (HL),&00
+	INC  L
+	LD   (HL),E
+	INC  L
+	LD   (HL),D
+	INC  L
+	LD   (HL),B
+	INC  L
+	LD   (HL),0
+	DEC  L
+	DEC  L
+	DEC  L
+	INC  IX
+	INC  IX
+	CALL SCI
+	DEC  C
+	JR   NZ,SPR16
+	RET
+;
+SPR8:	LD   A,(PIXEL)
+	LD   E,(IX+0)
+	LD   D,0
+	OR   A
+	JR   Z,SPR8B
+SPR8A:	RR   E
+	RR   D
+	DEC  A
+	JR   NZ,SPR8A
+SPR8B:	LD   (HL),E
+	INC  L
+	LD   (HL),D
+	DEC  L
+	CALL SCI
+	INC  IX
+	DEC  C
+	JR   NZ,SPR8
+	RET
+;
+TEXT:	LD   E,(HL)
+	INC  HL
+	LD   D,(HL)
+	PUSH DE
+	POP  IX
+	INC  HL
+TEXT1:	LD   A,(HL)
+	INC  HL
+	OR   A
+	RET  Z
+	PUSH HL
+	CALL VDU
+	POP  HL
+	JR   TEXT1
+;
+HEX:	PUSH AF
+	RRCA
+	RRCA
+	RRCA
+	RRCA
+	CALL HEX1
+	POP  AF
+HEX1:	AND  &0F
+	CP   &0A
+	JR   C,HEX2
+	ADD  A,&07
+HEX2:	ADD  A,48
+;
+VDU:	LD   L,A
+	LD   H,&00
+	LD   DE,&3C00
+	ADD  HL,HL
+	ADD  HL,HL
+	ADD  HL,HL
+	ADD  HL,DE
+	LD   B,&08
+HEX3:	LD   C,(HL)
+	LD   A,C
+	RRA
+	OR   C
+	LD   (IX+0),A
+	DB   &DD
+	INC  H
+	INC  HL
+	DJNZ HEX3
+	DB   &DD
+	LD   A,H
+	SUB  &08
+	DB   &DD
+	LD   H,A
+	DB   &DD
+	INC  L
+	RET
+;
+ATTRAD: LD   A,H
+	RRCA
+	RRCA
+	RRCA
+	AND  &03
+	OR   &58
+	LD   H,A
+	RET
+;
+WAIT:	NOP
+	DEC  BC
+	LD   A,B
+	OR   C
+	JR   NZ,WAIT
+	RET
+;
+MISCNT: DB   &00
+MIPIX:	DB   &00
+SPEED:	DB   &00
+FLAGS:	DB   &00
+TIMER:	DB   &00
+BAPIX:	DB   &00
+PIXEL:	DB   &00
+PLAYER: DB   &00
+ALIENS: DB   &00
+SHOOTS: DB   &00
+BASE:	DB   0,0,0,0,1,128,2,64,2,64,3,192
+	DB   3,192,3,192,39,228,39,228,47
+	DB   244,63,252,127,254,127,254,254
+	DB   127,254,127,62,124,34,68,0,0,0,0
+MSLE1:	DB   16,56,16,16,16,56,0,0,0
+MSLE2:	DB   32,4,80,10,32,4,0,0,0,0,0,0,0,0
+ALIEN1: DB   0,0,0,0
+	DB   3,192,14,112,24,24,54,108,38,100
+	DB   102,102,70,98,70,98,102,102,38
+	DB   100,54,108,24,24,14,112,3,192
+ALIEN2: DB   0,0,0,0
+	DB   3,192,6,96,12,48,10,80,26,88,18
+	DB   72,18,72,18,72,18,72,26,88,10,80
+	DB   12,48,6,96,3,192
+ALIEN3: DB   0,0,0,0
+	DB   1,128,1,128,1,128,3,192,2,64,2
+	DB   64,2,64,2,64,2,64,2,64,3,192,1
+	DB   128,1,128,1,128
+ALIEN4: DB   0,0,0,0
+	DB   3,192,6,96,12,48,10,80,26,88,18
+	DB   72,18,72,18,72,18,72,26,88,10,80
+	DB   12,48,6,96,3,192
+SPACES: DB   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	DB   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+SIGHT:	DB   0,0,1,128,1,128,1,128,14,112,14
+	DB   112,1,128,1,128,1,128,0,0
+SCINIT: DB   33,33,33,33,33,57,57,57,121,57,57
+	DB   57,33,33,33,33,33,33
+PALETT: DB   97,97,97,97,33,33,33,105,105
+	DB   41,41,41,41,41,41,41
+PLTXT:	DW   &4002
+	DB   '1UP',0
+	DW   &4021
+	DB   '00000',0
+	DW   &401C
+	DB   '2UP',0
+	DW   &403B
+	DB   '00000',0
+MISXY:	DW   &0000
+BASXY:	DW   &0000
+SCORE:	DW   &0000
+SEED:	DW   &0000,&0000
+GTABLE: DS   75
+ATABLE: DS   255
+BTABLE: DS   &40
+(*
+
+" Bypasses are devices which allow some people to   "
+" dash from point A to point B very fast whilst     "
+" other people dash from point B to point A very    "
+" fast. People living at point C, being a point     "
+" directly in between, are often given to wonder    "
+" what's so great about point A that so many people "
+" from point B are keen to get there, and what's so "
+" great about point B that so many people from      "
+" point A are keen to get there.                    "
+
+*)
+	END
+
